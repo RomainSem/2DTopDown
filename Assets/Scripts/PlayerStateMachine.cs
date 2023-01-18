@@ -15,6 +15,16 @@ public class PlayerStateMachine : MonoBehaviour
 
     [Header("Timer")]
     [SerializeField] float _rollDuration = 0.25f;
+
+    [Header("Moving Parameters")]
+    [SerializeField] float _runSpeed = 2f;
+
+    [SerializeField] float _sprintSpeed = 3f;
+
+    [SerializeField] AnimationCurve _rollCurve;
+
+    [SerializeField] float _rollSpeedMutliplier = 100f;
+
     #endregion
 
     #region Unity Lyfecycle
@@ -22,6 +32,7 @@ public class PlayerStateMachine : MonoBehaviour
     private void Awake()
     {
         _animator = GetComponentInChildren<Animator>();
+        _rb2D= GetComponent<Rigidbody2D>();
     }
 
     void Start()
@@ -32,6 +43,12 @@ public class PlayerStateMachine : MonoBehaviour
     void Update()
     {
         OnStateUpdate();
+        SetInput();
+    }
+
+    private void FixedUpdate()
+    {
+        _rb2D.velocity = _direction.normalized * _currentSpeed * Time.fixedDeltaTime;
     }
 
 
@@ -63,14 +80,21 @@ public class PlayerStateMachine : MonoBehaviour
         switch (_currentState)
         {
             case PlayerStateMode.LOCOMOTION:
-                _animator.SetFloat("DirectionX", Input.GetAxis("Horizontal"));
-                _animator.SetFloat("DirectionY", Input.GetAxis("Vertical"));
+                _currentSpeed = _runSpeed;
+                _animator.SetFloat("DirectionX", _direction.x);
+                _animator.SetFloat("DirectionY", _direction.y);
+
                 if (Input.GetButtonDown("Fire3"))
                 {
                     TransitionToState(PlayerStateMode.ROLL);
                 }
                 break;
+
             case PlayerStateMode.ROLL:
+                _rollCount += Time.deltaTime;
+                _rollSpeed = _rollCurve.Evaluate(_rollCount / _rollDuration ) * _rollSpeedMutliplier;
+                _currentSpeed = _rollSpeed;
+
                 if (Time.timeSinceLevelLoad > _endRollTime)
                 {
                     if (Input.GetButton("Fire3"))
@@ -84,14 +108,17 @@ public class PlayerStateMachine : MonoBehaviour
 
                 }
                 break;
+
             case PlayerStateMode.SPRINT:
-                _animator.SetFloat("DirectionX", Input.GetAxis("Horizontal"));
-                _animator.SetFloat("DirectionY", Input.GetAxis("Vertical"));
+                _currentSpeed = _sprintSpeed;
+                _animator.SetFloat("DirectionX", _direction.x);
+                _animator.SetFloat("DirectionY", _direction.y);
                 if (Input.GetButtonUp("Fire3"))
                 {
                     TransitionToState(PlayerStateMode.LOCOMOTION);
                 }
                 break;
+
             default:
                 break;
         }
@@ -105,6 +132,7 @@ public class PlayerStateMachine : MonoBehaviour
                 break;
             case PlayerStateMode.ROLL:
                 _animator.SetBool("isRolling", false);
+                _rollCount= 0f;
                 break;
             case PlayerStateMode.SPRINT:
                 _animator.SetBool("isSprinting", false);
@@ -121,13 +149,27 @@ public class PlayerStateMachine : MonoBehaviour
         OnStateEnter();
     }
 
+    // Fonction pour récupérer les inputs
+    void SetInput()
+    {
+        _direction.x = Input.GetAxis("Horizontal");
+        _direction.y = Input.GetAxis("Vertical");
+    }
+
     #endregion
 
     #region Private & Protected
-
+    // State Machine Parameters
     private PlayerStateMode _currentState;
     private Animator _animator;
     private float _endRollTime;
+
+    // Player move parameters
+    private Rigidbody2D _rb2D;
+    private Vector2 _direction;
+    private float _currentSpeed;
+    private float _rollCount = 0f;
+    private float _rollSpeed;
 
     #endregion
 }
